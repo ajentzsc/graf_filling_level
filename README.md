@@ -6,7 +6,7 @@ This project calulates the volume height relation of graf rainwater tanks.
 The results are collected in the `output/output.csv` for every centimeter fill height.
 To visualize the filling curves the results are plotted like this:
 
-![Platin5000 filling curve](/output/Platin_5000.png)
+![Platin5000 filling curve](/output/CaratXL_8500.png)
 
 Following tank systems are listed:
 - Platin
@@ -27,6 +27,15 @@ The script `CalcFillingLevel.py` solves this problem by:
 3. finding all inner voxels (tank volume voxels)
 4. summing volume voxels up while incrementing the z-axis
 
+![the voxelized tank](/voxelized.png)
+
+The voxelized tank. Every voxel has 1 cm^2 volume.
+<br>
+<br>
+
+![summing the volume iterative](/voxelized_part.png)
+
+Summing the voxels while incrementing the z-axis to get the volume for every filling height.
 The tank systems built of multiple parts (Carat/Platin XXL) are calculated as the sum of the used parts.
 
 # Software
