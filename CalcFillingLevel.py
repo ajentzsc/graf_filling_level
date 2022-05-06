@@ -6,7 +6,11 @@ from trimesh.voxel import creation
 from operator import add
 import matplotlib.pyplot as plt
 import csv
+import os
 
+#
+#   Class holding generic tank information
+#
 class Info:
     #   tank system name (Platin / Carat)
     system = ""
@@ -17,88 +21,124 @@ class Info:
     #   maximal volume in liter
     volume = 0
 
-    def __init__(self, system, volume, name=None):
+    #   scale gradient so the final volume matches the official
+    #   maximum volume
+    scaleToVolume = False
+
+    def __init__(self, system, volume, name=None, scaleToVolume=True):
         self.system = system
+        self.scaleToVolume = scaleToVolume
         self.volume = volume
         if name == None:
             self.name = str(volume)
         else:
             self.name = name
 
+    def __str__(self):
+        return "sys:{} name:{} volume:{} stv:{};".format(self.system, self.name, self.volume, self.scaleToVolume)
+
 #
 #   Class holding all information about one tank
-#
+#   possibly consisting of multiple parts (class part)
 class TankInfo(Info):
-    #   scale gradient so the final volume matches the official
-    #   maximum volume
-    scaleToVolume = False
-
     #   list of used parts when the tank consists of multiple tanks
     #   lists all names as often as used. Example: Platin 10K = ["3750","2500","3750"]
     parts = []
 
-    def __init__(self, system, volume, scaleToVolume=False, name=None, parts=[]):
-        self.scaleToVolume = scaleToVolume
+    def __init__(self, system, volume, name=None, scaleToVolume=True, parts=[]):
         self.parts = parts
-        Info.__init__(self, system, volume, name)
+        Info.__init__(self, system, volume, name, scaleToVolume)
 
+    def __str__(self):
+        partString = " ".join([str(a) for a in self.parts])
+        return "{} parts:{};".format(Info.__str__(self), partString)
 
+#
+#
+#
 class Part(Info):
     name = ""
     system = ""
     volume = 0
     count = 0
 
-    def __init__(self, volume, system, count=1, name=None):
+    def __init__(self, volume, system, count=1, name=None, scaleToVolume=True):
         self.count = count
-        Info.__init__(self, system, volume, name)
+        Info.__init__(self, system, volume, name, scaleToVolume)
 
     def equals(self, other):
         return (self.name == other.name and self.volume == other.volume and self.system == other.system)
+
+    def __str__(self):
+        return "{} cnt:{};".format(Info.__str__(self), self.count)
+
+#
+#   Directories
+#
+OUTPUT = "output"
+DATA = "data"
 
 #
 #   Collect all tank types with settings
 #
 tanks = []
 # Platin
-tanks.append(TankInfo("Platin", 1500, False))
-tanks.append(TankInfo("Platin", 3000, False))
-tanks.append(TankInfo("Platin", 5000, False))
-tanks.append(TankInfo("Platin", 7500, False))
+tanks.append(TankInfo("Platin", 1500, scaleToVolume=False))
+tanks.append(TankInfo("Platin", 3000, scaleToVolume=False))
+tanks.append(TankInfo("Platin", 5000, scaleToVolume=False))
+tanks.append(TankInfo("Platin", 7500, scaleToVolume=False))
 
 # Platin XL
-tanks.append(TankInfo("PlatinXL", 10000, False, parts=[Part(3750,"PlatinXL",2),Part(2500,"PlatinXL",1)]))
-tanks.append(TankInfo("PlatinXL", 15000, False, parts=[Part(3750,"PlatinXL",2),Part(2500,"PlatinXL",3)]))
+tanks.append(TankInfo("PlatinXL", 10000, scaleToVolume=False, parts=[Part(3750,"PlatinXL",2,scaleToVolume=False),Part(2500,"PlatinXL",1)]))
+tanks.append(TankInfo("PlatinXL", 15000, scaleToVolume=False, parts=[Part(3750,"PlatinXL",2,scaleToVolume=False),Part(2500,"PlatinXL",3)]))
 
 # Platin XXL
 for i in [20,25,30,35,40,45,50,55,60,65]:
     middleTanks = int((i*1000-2*3750)/2500)
-    tanks.append(TankInfo("PlatinXXL", i*1000, False, parts=[Part(3750,"PlatinXL",2),Part(2500,"PlatinXL",middleTanks)]))
+    tanks.append(TankInfo("PlatinXXL", i*1000, scaleToVolume=False, parts=[Part(3750,"PlatinXL",2,scaleToVolume=False),Part(2500,"PlatinXL",middleTanks)]))
 
 # Carat
-tanks.append(TankInfo("Carat", 2700, True))
-tanks.append(TankInfo("Carat", 3750, True))
-tanks.append(TankInfo("Carat", 4800, True))
-tanks.append(TankInfo("Carat", 6500, True))
+tanks.append(TankInfo("Carat", 2700, scaleToVolume=True))
+tanks.append(TankInfo("Carat", 3750, scaleToVolume=True))
+tanks.append(TankInfo("Carat", 4800, scaleToVolume=True))
+tanks.append(TankInfo("Carat", 6500, scaleToVolume=True))
 
 # Carat XL
-tanks.append(TankInfo("CaratXL", 8500, True))
-tanks.append(TankInfo("CaratXL", 10000, True))
+tanks.append(TankInfo("CaratXL", 8500, scaleToVolume=True))
+tanks.append(TankInfo("CaratXL", 10000, scaleToVolume=True))
 
-# Carat XXL TODO
-#   C   = 10 m^3
-#   A1  = 14 m^3 (TODO)
-#   A2  =  8 m^3 (TODO)
-#   B   = 18 m^3 (TODO)
-# tanks.append(carat16k = TankInfo("CaratXXL", 16000, True))
-# for i in [22,26,32,36,42,46,52,56,62,66,72,76,82,86,92,96,102,106,112,116,122]:
-#     tanks.append(TankInfo("PlatinXXL", 20000, False, parts=["3750","2500"*middleTanks,"3750"]))
+# Carat XXL
+# names are from the revit file
+# C   = 10 m^3  # single hole middle part
+# A1  = 14 m^3  # start part with small dual hole middle part
+# A2  =  8 m^3  # just the half sphere start part
+# B   = 18 m^3  # start part with long dual hole middle part
+tanks.append(TankInfo("CaratXXL", 16000, scaleToVolume=True))
+for i in [22,26,32,36,42,46,52,56,62,66,72,76,82,86,92,96,102,106,112,116,122]:
+    parts = [Part(8000,"CaratXXL",1,"A2")]
+    end = None
+    if (i-8)%10 == 4:
+        # add A1
+        end = Part(14000,"CaratXXL",1,"A1")
+    elif (i-8)%10 == 8:
+        # add B1
+        end = Part(18000,"CaratXXL",1,"B")
+    else:
+        print("tank building error")
+        exit()
+
+    parts.append(end)
+    parts.append(Part(10000,"CaratXXL",(i*1000-end.volume-8000)//10000,"C"))
+    tanks.append(TankInfo("CaratXXL", i*1000, scaleToVolume=False, parts=parts))
+
+for tank in tanks:
+    print(tank)
 
 #
 #   Read the mesh from file system and do small repairs
 #   All meshes are not watertight, so normal volume calculation wont work
 def readMesh(tank):
-    mesh = trimesh.load_mesh("data/" + str(tank.system) + "/" + str(tank.name) + ".stl")
+    mesh = trimesh.load_mesh(os.path.join(DATA, tank.system, tank.name + ".stl"))
     trimesh.caching.Cache.clear(mesh)
     trimesh.repair.fix_winding(mesh)
     trimesh.repair.fill_holes(mesh) # trimesh repair isnt helping
@@ -106,9 +146,8 @@ def readMesh(tank):
     mesh.remove_unreferenced_vertices()
     mesh.remove_infinite_values()
     mesh.rezero()
-    print(len(trimesh.repair.broken_faces(mesh)))
-    print("Watertight: " + str(mesh.is_watertight))
-    print("Volume: " + str(mesh.is_volume))
+    # print("Watertight: " + str(mesh.is_watertight))
+    # print("Volume: " + str(mesh.is_volume))
     print("Bounds: " + str(mesh.bounds[1]-mesh.bounds[0]))
     return mesh
 
@@ -147,7 +186,6 @@ def closeTop(voxels):
 #   with an iterative algorithm. Returns the filled tank
 #   (inside True, outside False)
 def fillIter(src):
-    print("starting point: 0,0,0")
     dest = np.ones(src.shape, dtype=bool)
 
     # list with voxels to check
@@ -185,40 +223,24 @@ def fillIter(src):
 #
 #   Fill tank centimeter by centimeter and log the volume
 #
-def fillHeight(voxels, tank, plot):
+def fillHeight(voxels, tank):
     # volume stepwise
     sum_z = 0
-    sum_list = []
-    z_list = []
+    sumList = []
+    zList = []
     for z in range(voxels.matrix.shape[2]):
         # level sum of filled tank
         level_sum = np.sum(voxels.matrix[:,:,z])
 
         # add to sum  of levels
         sum_z = sum_z + level_sum/1000#*(voxel_size**3)
-        sum_list.append(int(sum_z))
+        sumList.append(int(sum_z))
         #print("lvl: " + str(z) + " sum: " + str(level_sum*(voxel_size**3)))
 
         # z coordinate scaled to voxel (cm)
-        z_list.append(z)
+        zList.append(z)
 
-    if plot:
-        plt.rcParams["figure.figsize"] = (12,8)
-        plt.plot(z_list, sum_list)
-        plt.ylabel('volume')
-        plt.xlabel('z')
-        plt.vlines(voxels.matrix.shape[2], 0, tank.volume*1.1, label='Oberkante ' + str(voxels.matrix.shape[2]) + "cm", colors=['red'], linestyles=['dashed'])
-        plt.hlines(tank.volume, 0, voxels.matrix.shape[2], label=("Volumen " + str(tank.volume/1000) + "m^3"), colors=['green'], linestyles=['dashed'])
-        plt.legend()
-        plt.show()
-
-        gradient = np.gradient(np.asarray(sum_list))
-        plt.plot(z_list, gradient)
-        plt.ylabel('liter/cm')
-        plt.xlabel('z')
-        plt.show()
-
-    return sum_list
+    return sumList
 
 #
 #   Runs all needed steps to get the volume stepwise at the z axis
@@ -263,7 +285,41 @@ def calcGradient(tank):
     filled = trimesh.voxel.base.VoxelGrid(trimesh.voxel.encoding.DenseEncoding(filledMat))
     print("voxels filled: " + str(filled.filled_count))
 
-    curve = fillHeight(filled, tank, False)
+    curve = fillHeight(filled, tank)
+    return curve
+
+#
+#   Plot the tank gradient
+#   plot 1: fill height / volume
+#   plot 2: fill height / volume gradient
+def plotGradient(sumList, tank):
+    # plot the rising volume over the filling height
+    zList = list(range(len(sumList)))
+    plt.rcParams["figure.figsize"] = (15,8)
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.set_title("volume")
+    ax1.plot(zList, sumList)
+    ax1.set_ylabel('volume in liter')
+    ax1.set_xlabel('z in cm')
+    ax1.hlines(tank.volume, 0, len(sumList)*1.1, label=("volume " + str(tank.volume/1000) + "m^3"), colors=['green'], linestyles=['dashed'])
+
+    # plot the volume gradient over the filling height
+    gradient = np.gradient(np.asarray(sumList))
+    ax2.set_title("gradient")
+    ax2.plot(zList, gradient)
+    ax2.set_ylabel('liter/cm')
+    ax2.set_xlabel('z in cm')
+    title = tank.system + "_" + tank.name
+    fig.suptitle(title)
+    fig.savefig(os.path.join(OUTPUT, title + '.png'))
+    plt.close(fig)
+
+
+def scaleCurveToVolume(curve, tank):
+    if tank.scaleToVolume:
+        factor=tank.volume/float(curve[-1])
+        print("factor: " + str(factor) + " oldmax: " + str(curve[-1]))
+        curve=list(map(lambda x: int(x*factor), curve))
     return curve
 
 
@@ -273,6 +329,10 @@ def calcGradient(tank):
 #   "output" csv file. When the tank consists of multiple parts those are summed
 #   up to get the volume. All parts are added to the "partCache" to remember
 #   already processes parts
+
+if not os.path.exists(OUTPUT):
+    os.mkdir(OUTPUT)
+
 rows = []
 partCache = []
 for tank in tanks:
@@ -294,6 +354,7 @@ for tank in tanks:
             # no cached result
             if partCurve == None:
                 partCurve = calcGradient(part)
+                partCurve = scaleCurveToVolume(partCurve, part)
                 partCache.append((part, partCurve))
 
             # add to curve
@@ -301,14 +362,19 @@ for tank in tanks:
                 curve = partCurve # init row
                 curve = list(map(lambda x: x*part.count, curve))
             else: # add itemwise
-                if len(curve) < len(partCurve): curve.extend([0]*(len(partCurve)-len(curve)))
-                if len(curve) > len(partCurve): partCurve.extend([0]*(len(curve)-len(partCurve)))
+                if len(curve) < len(partCurve): curve.extend([curve[-1]]*(len(partCurve)-len(curve)))
+                if len(curve) > len(partCurve): partCurve.extend([partCurve[-1]]*(len(curve)-len(partCurve)))
                 for i in range(len(curve)):
                     curve[i] = curve[i] + partCurve[i]*part.count
     else:
         # no parts
         curve = calcGradient(tank)
 
+    # correct the function by scaling to the real volume
+    curve = scaleCurveToVolume(curve, tank)
+
+    # save plot of the curve
+    plotGradient(curve, tank)
 
     # add to csv collection
     name = tank.system + tank.name
@@ -316,12 +382,10 @@ for tank in tanks:
     row.extend(curve)
     rows.append(row)
 
-f = open('output', 'w')
+# write curves to csv
+f = open(os.path.join(OUTPUT, 'output.csv'), 'w')
 writer = csv.writer(f)
 for row in rows:
-    print("row: " + str(row))
     writer.writerow(row)
 
 f.close()
-
-print("runs!")
