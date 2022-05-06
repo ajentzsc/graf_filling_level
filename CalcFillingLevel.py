@@ -54,8 +54,9 @@ class TankInfo(Info):
         return "{} parts:{};".format(Info.__str__(self), partString)
 
 #
-#
-#
+#   Part of a graf tank
+#   Describes a tank that is only part of a bigger structure
+#   This part has its own .stl file
 class Part(Info):
     name = ""
     system = ""
@@ -72,14 +73,20 @@ class Part(Info):
     def __str__(self):
         return "{} cnt:{};".format(Info.__str__(self), self.count)
 
+
 #
 #   Directories
 #
 OUTPUT = "output"
 DATA = "data"
 
+
 #
 #   Collect all tank types with settings
+#
+#
+#
+#
 #
 tanks = []
 # Platin
@@ -93,6 +100,9 @@ tanks.append(TankInfo("PlatinXL", 10000, scaleToVolume=False, parts=[Part(3750,"
 tanks.append(TankInfo("PlatinXL", 15000, scaleToVolume=False, parts=[Part(3750,"PlatinXL",2,scaleToVolume=False),Part(2500,"PlatinXL",3)]))
 
 # Platin XXL
+# consist of two parts:
+# 3750  = a 3750l tank with access (used at both ends)
+# 2500  = a 1500l tank without access (used in the middle)
 for i in [20,25,30,35,40,45,50,55,60,65]:
     middleTanks = int((i*1000-2*3750)/2500)
     tanks.append(TankInfo("PlatinXXL", i*1000, scaleToVolume=False, parts=[Part(3750,"PlatinXL",2,scaleToVolume=False),Part(2500,"PlatinXL",middleTanks)]))
@@ -108,6 +118,7 @@ tanks.append(TankInfo("CaratXL", 8500, scaleToVolume=True))
 tanks.append(TankInfo("CaratXL", 10000, scaleToVolume=True))
 
 # Carat XXL
+# consist of multipe parts
 # names are from the revit file
 # C   = 10 m^3  # single hole middle part
 # A1  = 14 m^3  # start part with small dual hole middle part
@@ -133,6 +144,12 @@ for i in [22,26,32,36,42,46,52,56,62,66,72,76,82,86,92,96,102,106,112,116,122]:
 
 for tank in tanks:
     print(tank)
+
+
+
+
+
+
 
 #
 #   Read the mesh from file system and do small repairs
@@ -315,6 +332,10 @@ def plotGradient(sumList, tank):
     plt.close(fig)
 
 
+#
+#   Scales the given filling curve to the expected tank volume
+#   This removes most inaccuracies from not considering the tank
+#   material thickness and the low resolution
 def scaleCurveToVolume(curve, tank):
     if tank.scaleToVolume:
         factor=tank.volume/float(curve[-1])
