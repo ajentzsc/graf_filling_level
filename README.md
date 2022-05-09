@@ -29,7 +29,7 @@ The script `CalcFillingLevel.py` solves this problem by:
 
 ![the voxelized tank](/voxelized.png)
 
-The voxelized tank. Every voxel has 1 cm^2 volume.
+The voxelized tank. Every voxel has 1 cm^3 (1ml) volume.
 <br>
 <br>
 
